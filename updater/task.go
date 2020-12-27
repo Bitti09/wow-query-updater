@@ -10,10 +10,10 @@ type LogType int8
 
 const (
 	_ LogType = iota
-	LT_DEBUG
-	LT_INFO
-	LT_WARNING
-	LT_ERROR
+	LtDebug
+	LtInfo
+	LtWarning
+	LtError
 )
 
 type TaskLog struct {
@@ -65,8 +65,8 @@ func (task *Task) log(logType LogType, message string, args ...interface{}) {
 }
 
 func (task *Task) resume() {
-	time.Sleep(5 * time.Minute) // Wait for an hour
-	task.log(LT_DEBUG, "RESUMING ALL WORKERS\n")
+	time.Sleep(15 * time.Minute) // Wait for an hour
+	task.log(LtWarning, "RESUMING ALL WORKERS\n")
 	task.suspended = false
 	task.waitCond.Broadcast()
 }
@@ -76,11 +76,11 @@ func (task *Task) suspend(workerId int) {
 	defer task.mux.Unlock()
 
 	if task.suspended {
-		task.log(LT_DEBUG, "[Worker %d]ALREADY SUSPENDED\n", workerId)
+		task.log(LtDebug, "[Worker %d]ALREADY SUSPENDED\n", workerId)
 		return
 	}
 
-	task.log(LT_DEBUG, "[Worker %d]SUSPENDING ALL WORKERS\n", workerId)
+	task.log(LtWarning, "[Worker %d]SUSPENDING ALL WORKERS\n", workerId)
 	task.suspended = true
 
 	go task.resume()

@@ -1,18 +1,16 @@
 package datasets
 
-type ReputationTierItem struct {
-	Identifiable
+type ReputationTier struct {
 	ReputationTierID int             `pg:",pk,use_zero"`
-	ReputationTier   *ReputationTier `pg:"rel:has-one"`
+	Identifiable
 	Name             LocalizedField  `json:"name"`
 	MinValue         int             `json:"min_value"`
 	MaxValue         int             `json:"max_value"`
 }
 
-type ReputationTier struct {
+type ReputationTierGroup struct {
 	Identifiable
-	Name  LocalizedField       `json:"name"`
-	Tiers []ReputationTierItem `json:"tiers" pg:"-"`
+	Tiers []ReputationTier `json:"tiers" pg:"-"`
 }
 
 type ReputationFaction struct {

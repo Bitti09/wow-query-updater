@@ -7,6 +7,7 @@ import (
 
 func DatabaseSetup(classic bool) {
 	createTable(&datasets.UpdateError{})
+	createTable(&datasets.Cache{})
 	// Enums / simple references
 	createTable(&datasets.Faction{})
 	createTable(&datasets.Operator{})
@@ -68,8 +69,6 @@ func DatabaseSetup(classic bool) {
 		createTable(&datasets.ItemAbilityRequirement{})
 		createTable(&datasets.ItemSkillRequirement{})
 		createTable(&datasets.ItemMetadata{})
-
-		createTable(&datasets.ReputationTierItem{})
 
 		createTable(&datasets.PlayableSpecializationMedia{})
 		createTable(&datasets.PlayableSpecializationAsset{})

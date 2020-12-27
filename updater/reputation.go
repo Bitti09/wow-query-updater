@@ -7,13 +7,11 @@ import (
 )
 
 func UpdateReputationTier(data *blizzard_api.ApiResponse) {
-	var reputationTier datasets.ReputationTier
-	data.Parse(&reputationTier)
+	var reputationTierGroup datasets.ReputationTierGroup
+	data.Parse(&reputationTierGroup)
 
-	insertOnce(&reputationTier)
-
-	for _, tier := range reputationTier.Tiers {
-		tier.ReputationTierID = reputationTier.ID
+	for _, tier := range reputationTierGroup.Tiers {
+		tier.ReputationTierID = reputationTierGroup.ID
 		insertOnceExpr(&tier, "(id,reputation_tier_id) DO UPDATE", "name", "min_value", "max_value")
 	}
 }

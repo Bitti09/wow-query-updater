@@ -13,6 +13,8 @@ type Config struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Database string `json:"database"`
+	Hostname string `json:"hostname"`
+	Port     int    `json:"port"`
 
 	RedisHost string `json:"redis_host"`
 	RedisDB   int    `json:"redis_db"`

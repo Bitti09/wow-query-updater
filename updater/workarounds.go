@@ -1,6 +1,10 @@
 package updater
 
-import "wow-query-updater/datasets"
+import (
+	blizzard_api "github.com/francis-schiavo/blizzard-api-go"
+	"wow-query-updater/connections"
+	"wow-query-updater/datasets"
+)
 
 func InsertMissingItemClasses() {
 	// Missing item class
@@ -83,18 +87,19 @@ func InsertMissingItemClasses() {
 
 func InsertMissingReputationTiers() {
 	// Missing reputation referenced by items
-	insertOnce(&datasets.ReputationTier{
+	insertOnceExpr(&datasets.ReputationTier{
+		ReputationTierID: 9999999,
 		Identifiable: datasets.Identifiable{
-			ID: -1,
+			ID: 9999999,
 		},
 		Name: datasets.LocalizedField{},
-	})
+	}, "(reputation_tier_id,id) DO NOTHING")
 
 	insertOnce(&datasets.ReputationFaction{
 		Identifiable: datasets.Identifiable{
 			ID: 2463,
 		},
-		ReputationTierID: -1,
+		ReputationTierID: 9999999,
 		Name: datasets.LocalizedField{
 			EnUS: "Marasmius",
 			EsMX: "Marasmius",
@@ -116,7 +121,7 @@ func InsertMissingReputationTiers() {
 		Identifiable: datasets.Identifiable{
 			ID: 2464,
 		},
-		ReputationTierID: -1,
+		ReputationTierID: 9999999,
 		Name: datasets.LocalizedField{
 			EnUS: "Court of Night",
 			EsMX: "Corte de la Noche",
@@ -223,4 +228,27 @@ func InsertMissingStats()  {
 	insertOnce(&datasets.Stat{
 		ID:   "ALL_RESISTANCE",
 	})
+}
+
+func UpdateTechTalentUsingTree(data *blizzard_api.ApiResponse) {
+	var techTalentTree datasets.TechTalentTree
+	data.Parse(&techTalentTree)
+
+	for _, talent := range techTalentTree.Talents {
+		var techTalent datasets.TechTalent
+		talentData := connections.WowClient.TechTalent(talent.ID, &blizzard_api.RequestOptions{})
+		talentData.Parse(&techTalent)
+
+		techTalent.TechTalentTreeID = techTalentTree.ID
+		if techTalent.PrerequisiteTalent != nil {
+			techTalent.PrerequisiteTalentID = techTalent.PrerequisiteTalent.ID
+		}
+
+		if techTalent.SpellTooltip != nil {
+			updateSpellTooltip(techTalent.SpellTooltip)
+			techTalent.SpellTooltipID = techTalent.SpellTooltip.ID
+		}
+
+		insertOnceUpdate(&techTalent, "name", "description", "spell_tooltip_id", "tier", "display_order", "prerequisite_talent_id", "tech_talent_tree_id")
+	}
 }

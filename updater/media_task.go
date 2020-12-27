@@ -25,17 +25,17 @@ func (task *MediaTask) worker(workerId int) {
 			reflect.ValueOf(id),
 			reflect.ValueOf((*blizzard_api.RequestOptions)(nil)),
 		}
-		task.log(LT_DEBUG, "[Worker %d] Processing %s %d\n", workerId, task.Name, id)
+		task.log(LtDebug, "[Worker %d] Processing %s %d\n", workerId, task.Name, id)
 
 		response := endpointInterface.Call(args)[0].Interface().(*blizzard_api.ApiResponse)
 		if !response.Cached {
 			task.rateLimiter <- 1
 		}
 
-		task.log(LT_DEBUG, "[Worker %d] Finished processing %s %d\n", workerId, task.Name, id)
+		task.log(LtDebug, "[Worker %d] Finished processing %s %d\n", workerId, task.Name, id)
 		if response.Status == 200 {
 			task.MediaCallback(response, id)
-			task.log(LT_INFO, "Updated %s %d successfully!\n", task.Name, id)
+			task.log(LtDebug, "Updated %s %d successfully!\n", task.Name, id)
 			task.waitGroup.Done()
 		} else if response.Status == 429 {
 			// Insert the failed id into the queue to retry later
@@ -43,21 +43,21 @@ func (task *MediaTask) worker(workerId int) {
 			// Suspend all goroutines temporarily
 			task.suspend(workerId)
 		} else {
-			task.log(LT_INFO, "Failed to update %s %d with status: %d\n", task.Name, id, response.Status)
+			task.log(LtError, "Failed to update %s %d with status: %d\n", task.Name, id, response.Status)
 			task.waitGroup.Done()
 		}
 
 		// Wait for a while after a "too many requests" response
 		if task.suspended {
 			// Wait until it is resumed
-			task.log(LT_DEBUG, "[Worker %d] Waiting\n", workerId)
+			task.log(LtDebug, "[Worker %d] Waiting\n", workerId)
 			task.waitCond.L.Lock()
 			task.waitCond.Wait()
 			task.waitCond.L.Unlock()
-			task.log(LT_DEBUG, "[Worker %d] Resumed\n", workerId)
+			task.log(LtDebug, "[Worker %d] Resumed\n", workerId)
 		}
 	}
-	task.log(LT_DEBUG, "[Worker %d] Exiting\n", workerId)
+	task.log(LtDebug, "[Worker %d] Exiting\n", workerId)
 }
 
 func (task *MediaTask) Run() {
@@ -80,11 +80,11 @@ func (task *MediaTask) Run() {
 		return nil
 	})
 	if err != nil {
-		task.log(LT_ERROR, "Task %s finished with error: %p.", err)
+		task.log(LtError, "Task %s finished with error: %p.\n", err)
 	}
 
 	task.waitGroup.Wait()
-	task.log(LT_INFO, "Task %s finished.", task.Name)
+	task.log(LtInfo, "Task %s finished.\n", task.Name)
 	close(task.queue)
 	close(task.rateLimiter)
 }

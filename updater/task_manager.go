@@ -92,27 +92,6 @@ func (manager *TaskManager) AddSearchTask(name string, indexMethod string, itemM
 	manager.taskList = append(manager.taskList, task)
 }
 
-func (manager *TaskManager) AddRangeTask(name string, rangeStart int, rangeEnd int, itemMethod string, updateCallback ItemCallback) {
-	task := &RangeTask{
-		Task:          Task{
-			Name:        name,
-			mux:         sync.Mutex{},
-			concurrency: manager.Concurrency,
-			delay:       manager.Delay,
-
-			start:       &manager.taskStart,
-			end:         &manager.taskEnd,
-			progress:    &manager.taskProgress,
-			logChan:     &manager.logChannel,
-		},
-		RangeStart: rangeStart,
-		RangeEnd: rangeEnd,
-		ItemMethod: itemMethod,
-		ItemCallback:  updateCallback,
-	}
-	manager.taskList = append(manager.taskList, task)
-}
-
 func (manager *TaskManager) AddSimpleTask(name string, method SimpleMethod) {
 	task := &SimpleTask{
 		Name:   name,
@@ -135,7 +114,7 @@ func (manager *TaskManager) Run() {
 
 	for _, task := range manager.taskList {
 		manager.logChannel <- TaskLog{
-			LogType: LT_WARNING,
+			LogType: LtInfo,
 			Message: fmt.Sprintf("Running task: %s\n", task.GetName()),
 		}
 		task.Run()

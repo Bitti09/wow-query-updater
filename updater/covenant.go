@@ -50,7 +50,18 @@ func UpdateCovenant(data *blizzard_api.ApiResponse) {
 func UpdateSoulbind(data *blizzard_api.ApiResponse) {
 	var soulbind datasets.Soulbind
 	data.Parse(&soulbind)
-	insertOnceUpdate(&soulbind, "name", "covenant_id", "creature_id", "follower_id", "talent_tree")
+
+	if soulbind.Follower != nil {
+		insertOnce(soulbind.Follower)
+		soulbind.FollowerID = soulbind.Follower.ID
+	}
+
+	soulbind.CovenantID = soulbind.Covenant.ID
+	soulbind.CreatureID = soulbind.Creature.ID
+
+	soulbind.TechTalentTreeID = soulbind.TechTalentTree.ID
+
+	insertOnceUpdate(&soulbind, "name", "covenant_id", "creature_id", "follower_id", "tech_talent_tree_id")
 }
 
 func UpdateConduit(data *blizzard_api.ApiResponse) {

@@ -22,10 +22,11 @@ func (d dbLogger) AfterQuery(c context.Context, q *pg.QueryEvent) error {
 }
 
 // Connect is used to create the Postgres connection pool
-func Connect(username string, password string, db string, poolSize int, schema string) {
+func Connect(username string, password string, db string, poolSize int, schema string, hostname string, port int) {
 	createSchemaStatement := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS \"%s\";", schema)
 	useSchemaStatement := fmt.Sprintf("SET SEARCH_PATH = \"%s\";", schema)
 	dbConn = pg.Connect(&pg.Options{
+		Addr: fmt.Sprintf("%s:%d", hostname, port),
 		User:     username,
 		Password: password,
 		Database: db,

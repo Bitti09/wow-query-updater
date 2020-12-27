@@ -1,0 +1,11 @@
+{
+  "client_id": "f4cd8a0fc604454183ea4cd55ef2225e",
+  "client_secret": "cuxD2NlgUz4N6ktS4K5dPSFgo4Z0CICc",
+
+  "username": "francis",
+  "password": "1234",
+  "database": "api_data",
+
+  "redis_host": "localhost:6379",
+  "redis_db": 12
+}

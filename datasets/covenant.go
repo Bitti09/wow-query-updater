@@ -67,12 +67,12 @@ type CovenantRenownReward struct {
 type Soulbind struct {
 	Identifiable
 	Name             LocalizedField  `json:"name"`
-	CovenantID       int             ``
+	CovenantID       int
 	Covenant         *Covenant       `json:"covenant" pg:"rel:has-one"`
-	CreatureID       int             ``
+	CreatureID       int
 	Creature         *Creature       `json:"creature" pg:"rel:has-one"`
-	FollowerID       int             ``
+	FollowerID       int
 	Follower         *Follower       `json:"follower" pg:"rel:has-one"`
-	TechTalentTreeID int             ``
+	TechTalentTreeID int
 	TechTalentTree   *TechTalentTree `json:"talent_tree" pg:"rel:has-one"`
 }

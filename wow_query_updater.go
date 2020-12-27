@@ -2,8 +2,12 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	blizzard_api "github.com/francis-schiavo/blizzard-api-go"
+	ui "github.com/gizak/termui/v3"
+	"github.com/gizak/termui/v3/widgets"
+	"log"
+	"strconv"
+	"time"
 	"wow-query-updater/connections"
 	"wow-query-updater/updater"
 )
@@ -31,7 +35,7 @@ func main() {
 
 	taskManager := updater.NewTaskManager(80, 12, updater.LtInfo)
 
-	//// Common
+	// Common
 	//taskManager.AddIndexTask("playable race", "PlayableRaceIndex", "races", "PlayableRace", updater.UpdatePlayableRace)
 	//
 	//taskManager.AddIndexTask("power type", "PowerTypeIndex", "power_types", "PowerType", updater.UpdatePowerType)
@@ -114,11 +118,11 @@ func main() {
 		//taskManager.AddIndexTask("journal instance", "JournalInstanceIndex", "instances", "JournalInstance", updater.UpdateJournalInstance)
 		//taskManager.AddIndexTask("journal encounter", "JournalEncounterIndex", "encounters", "JournalEncounter", updater.UpdateJournalEncounter)
 		//taskManager.AddMediaTask("instance media", &datasets.JournalInstanceMedia{}, "JournalInstanceMedia", updater.UpdateInstanceMedia)
-
-		// Tech talent
-		taskManager.AddIndexTask("tech talent tree", "TechTalentTreeIndex", "talent_trees", "TechTalentTree", updater.UpdateTechTalentTree)
-		//taskManager.AddIndexTask("tech talent", "TechTalentIndex", "talents", "TechTalent", updater.UpdateTechTalent)
-		taskManager.AddIndexTask("tech talent workaround", "TechTalentTreeIndex", "talent_trees", "TechTalentTree", updater.UpdateTechTalentUsingTree)
+		//
+		//// Tech talent
+		//taskManager.AddIndexTask("tech talent tree", "TechTalentTreeIndex", "talent_trees", "TechTalentTree", updater.UpdateTechTalentTree)
+		////taskManager.AddIndexTask("tech talent", "TechTalentIndex", "talents", "TechTalent", updater.UpdateTechTalent)
+		//taskManager.AddIndexTask("tech talent workaround", "TechTalentTreeIndex", "talent_trees", "TechTalentTree", updater.UpdateTechTalentUsingTree)
 
 		// Covenant
 		taskManager.AddIndexTask("conduit", "ConduitIndex", "conduits", "Conduit", updater.UpdateConduit)
@@ -131,14 +135,11 @@ func main() {
 	//taskManager.AddMediaTask("item media", &datasets.ItemMedia{}, "ItemMedia", updater.UpdateItemMedia)
 	//taskManager.AddMediaTask("creature family media", &datasets.CreatureFamilyMedia{}, "CreatureFamilyMedia", updater.UpdateCreatureFamilyMedia)
 
-	//if !*classic {
-	//	taskManager.AddMediaTask("spell media", &datasets.SpellMedia{}, "SpellMedia", updater.UpdateSpellMedia)
-	//}
+	if !*classic {
+		//taskManager.AddMediaTask("spell media", &datasets.SpellMedia{}, "SpellMedia", updater.UpdateSpellMedia)
+	}
 
-	fmt.Printf("Classic mode: %v\n", *classic)
-	taskManager.Run()
-
-	/*if err := ui.Init(); err != nil {
+	if err := ui.Init(); err != nil {
 		log.Fatalf("Failed to initialize termui: %v", err)
 	}
 	defer ui.Close()
@@ -148,41 +149,69 @@ func main() {
 	grid.SetRect(0, 0, termWidth, 12)
 
 	taskLabel := NewLabel("Current task", "Items", ui.ColorYellow)
-	taskType := NewLabel("Task type", "Search", ui.ColorYellow)
-	cachedRequestsLabel := NewLabel("Cached requests", "1000", ui.ColorGreen)
-	uncachedRequestsLabel := NewLabel("Uncached requests", "1000", ui.ColorYellow)
-	failedRequestsLabel := NewLabel("Failed requests", "1000", ui.ColorRed)
-	taskGauge := widgets.NewGauge()
-	taskGauge.Title = "Current task progress"
-	taskGauge.Percent = 70
+	modeLabel := NewLabel("Mode", "", ui.ColorYellow)
+	if *classic {
+		modeLabel.Text = "Classic"
+	} else {
+		modeLabel.Text = "Retail"
+	}
+
+	cachedRequestsLabel := NewLabel("Cached requests", "0", ui.ColorGreen)
+	uncachedRequestsLabel := NewLabel("Uncached requests", "0", ui.ColorMagenta)
+	failedRequestsLabel := NewLabel("Failed requests", "0", ui.ColorRed)
+	statusLabel := NewLabel("Status", "Running", ui.ColorYellow)
 
 	tasksGauge := widgets.NewGauge()
 	tasksGauge.Title = "Total progress"
-	tasksGauge.Percent = 70
+	tasksGauge.BarColor = ui.ColorBlue
+
+	taskGauge := widgets.NewGauge()
+	taskGauge.Title = "Current task progress"
+	taskGauge.BarColor = ui.ColorMagenta
 
 	grid.Set(
 		ui.NewRow(3.0/12,
 			ui.NewCol(1.5/2, taskLabel),
-			ui.NewCol(.5/2, taskType),
-		),
-		ui.NewRow(3.0/12,
-			ui.NewCol(1.0, taskGauge),
+			ui.NewCol(.5/2, modeLabel),
 		),
 		ui.NewRow(3.0/12,
 			ui.NewCol(1.0, tasksGauge),
 		),
 		ui.NewRow(3.0/12,
-			ui.NewCol(1.0/3, cachedRequestsLabel),
-			ui.NewCol(1.0/3, uncachedRequestsLabel),
-			ui.NewCol(1.0/3, failedRequestsLabel),
+			ui.NewCol(1.0, taskGauge),
+		),
+		ui.NewRow(3.0/12,
+			ui.NewCol(1.0/4, cachedRequestsLabel),
+			ui.NewCol(1.0/4, uncachedRequestsLabel),
+			ui.NewCol(1.0/4, failedRequestsLabel),
+			ui.NewCol(1.0/4, statusLabel),
 		),
 	)
 
 	ui.Render(grid)
 
 	uiEvents := ui.PollEvents()
+	ticker := time.NewTicker(time.Millisecond * 200).C
+
+	go taskManager.Run()
+
 	for {
 		select {
+		case <-ticker:
+			taskLabel.Text = taskManager.CurrentTask.GetName()
+			tasksGauge.Percent = taskManager.Progress
+			taskGauge.Percent = taskManager.CurrentTask.GetProgress()
+			cachedRequestsLabel.Text = strconv.Itoa(int(taskManager.CachedRequests))
+			uncachedRequestsLabel.Text = strconv.Itoa(int(taskManager.UncachedRequests))
+			failedRequestsLabel.Text = strconv.Itoa(int(taskManager.FailedRequests))
+			if taskManager.Status {
+				statusLabel.Text = "Running"
+				statusLabel.TextStyle.Fg = ui.ColorGreen
+			} else {
+				statusLabel.Text = "Suspended"
+				statusLabel.TextStyle.Fg = ui.ColorRed
+			}
+			ui.Render(grid)
 		case e := <-uiEvents:
 			switch e.ID {
 			case "q", "<C-c>":
@@ -194,5 +223,5 @@ func main() {
 				ui.Render(grid)
 			}
 		}
-	}*/
+	}
 }

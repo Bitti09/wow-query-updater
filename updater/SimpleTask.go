@@ -14,3 +14,7 @@ func (task *SimpleTask) GetName() string {
 func (task *SimpleTask) Run() {
 	task.Method()
 }
+
+func (task *SimpleTask) GetProgress() int {
+	return 50
+}

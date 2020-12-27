@@ -4,6 +4,7 @@ import (
 	blizzard_api "github.com/francis-schiavo/blizzard-api-go"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"wow-query-updater/connections"
 	"wow-query-updater/datasets"
 )
@@ -15,6 +16,17 @@ type MediaTask struct {
 	IndexModel    interface{}
 	MediaMethod   string
 	MediaCallback MediaCallback
+
+	totalItems     int32
+	processedItems int32
+}
+
+func (task *MediaTask) GetProgress() int {
+	if task.totalItems > 0 {
+		return int(task.processedItems * 100 / task.totalItems)
+	} else {
+		return 0
+	}
 }
 
 func (task *MediaTask) worker(workerId int) {
@@ -29,13 +41,16 @@ func (task *MediaTask) worker(workerId int) {
 
 		response := endpointInterface.Call(args)[0].Interface().(*blizzard_api.ApiResponse)
 		if !response.Cached {
+			task.manager.incUncachedRequests()
 			task.rateLimiter <- 1
 		}
+		task.manager.incCachedRequests()
 
 		task.log(LtDebug, "[Worker %d] Finished processing %s %d\n", workerId, task.Name, id)
 		if response.Status == 200 {
 			task.MediaCallback(response, id)
 			task.log(LtDebug, "Updated %s %d successfully!\n", task.Name, id)
+			atomic.AddInt32(&task.processedItems, 1)
 			task.waitGroup.Done()
 		} else if response.Status == 429 {
 			// Insert the failed id into the queue to retry later
@@ -43,7 +58,9 @@ func (task *MediaTask) worker(workerId int) {
 			// Suspend all goroutines temporarily
 			task.suspend(workerId)
 		} else {
+			task.manager.incFailedRequests()
 			task.log(LtError, "Failed to update %s %d with status: %d\n", task.Name, id, response.Status)
+			atomic.AddInt32(&task.processedItems, 1)
 			task.waitGroup.Done()
 		}
 
@@ -61,6 +78,7 @@ func (task *MediaTask) worker(workerId int) {
 }
 
 func (task *MediaTask) Run() {
+	task.log(LtInfo, "Running task: %s\n", task.GetName())
 	task.waitGroup = sync.WaitGroup{}
 	task.queue = make(chan int)
 	m := &sync.Mutex{}
@@ -75,6 +93,7 @@ func (task *MediaTask) Run() {
 	go task.rateLimitWorker()
 
 	err := connections.GetDBConn().Model(task.IndexModel).ForEach(func(item datasets.Media) error {
+		atomic.AddInt32(&task.totalItems, 1)
 		task.waitGroup.Add(1)
 		task.queue <- item.ID
 		return nil
@@ -97,10 +116,8 @@ func (manager *TaskManager) AddMediaTask(name string, indexModel interface{}, me
 			concurrency: manager.Concurrency,
 			delay:       manager.Delay,
 
-			start:    &manager.taskStart,
-			end:      &manager.taskEnd,
-			progress: &manager.taskProgress,
-			logChan:  &manager.logChannel,
+			logChan:  manager.logChannel,
+			manager: manager,
 		},
 		IndexModel:    indexModel,
 		MediaMethod:   mediaMethod,

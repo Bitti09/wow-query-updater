@@ -24,10 +24,12 @@ type TaskLog struct {
 type RunnableTask interface {
 	Run()
 	GetName() string
+	GetProgress() int
 }
 
 type Task struct {
-	Name string
+	Name     string
+	Progress int
 
 	mux         sync.Mutex
 	waitCond    *sync.Cond
@@ -37,12 +39,10 @@ type Task struct {
 	queue       chan int
 	suspended   bool
 
-	start    *int64
-	end      *int64
-	progress *int64
-	logChan  *chan TaskLog
+	logChan *chan TaskLog
 
 	rateLimiter chan int
+	manager     *TaskManager
 }
 
 func (task *Task) GetName() string {
@@ -56,11 +56,13 @@ func (task *Task) rateLimitWorker() {
 }
 
 func (task *Task) log(logType LogType, message string, args ...interface{}) {
-	if task.logChan != nil {
-		*task.logChan <- TaskLog{
-			LogType: logType,
-			Message: fmt.Sprintf(message, args...),
-		}
+	if task.logChan == nil {
+		return
+	}
+
+	*task.logChan <- TaskLog{
+		LogType: logType,
+		Message: fmt.Sprintf(message, args...),
 	}
 }
 
@@ -68,6 +70,7 @@ func (task *Task) resume() {
 	time.Sleep(15 * time.Minute) // Wait for an hour
 	task.log(LtWarning, "RESUMING ALL WORKERS\n")
 	task.suspended = false
+	task.manager.Status = true
 	task.waitCond.Broadcast()
 }
 
@@ -82,6 +85,7 @@ func (task *Task) suspend(workerId int) {
 
 	task.log(LtWarning, "[Worker %d]SUSPENDING ALL WORKERS\n", workerId)
 	task.suspended = true
+	task.manager.Status = false
 
 	go task.resume()
 }

@@ -3,7 +3,6 @@ package updater
 import (
 	"fmt"
 	"github.com/go-pg/pg/v10"
-	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -68,10 +67,19 @@ func asInt(in string) int {
 	return result
 }
 
+func containString(value string, list []string) bool {
+	for _, v := range list {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
+
 func handleError(error error, data interface{}) {
 	db := connections.GetDBConn()
 	name := reflect.TypeOf(data).Elem().Name()
-	log.Printf("%s: Error: %v Data: %v", name, error, data)
+	//log.Printf("%s: Error: %v Data: %v", name, error, data)
 	errType := reflect.TypeOf(error)
 
 	if errType == reflect.TypeOf("") {

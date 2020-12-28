@@ -10,7 +10,11 @@ func updateRecipe(data *blizzard_api.ApiResponse) {
 	var recipe datasets.Recipe
 	data.Parse(&recipe)
 
-	insertOnceUpdate(&recipe, "name", "crafted_item_id")
+	if recipe.CraftedItem != nil {
+		recipe.CraftedItemID = recipe.CraftedItem.ID
+	}
+
+	insertOnceUpdate(&recipe, "name", "crafted_item_id", "rank")
 
 	for _, reagent := range recipe.Reagents {
 		reagent.RecipeID = recipe.ID

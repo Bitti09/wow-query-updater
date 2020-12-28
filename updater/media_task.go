@@ -42,7 +42,6 @@ func (task *MediaTask) worker(workerId int) {
 		response := endpointInterface.Call(args)[0].Interface().(*blizzard_api.ApiResponse)
 		if !response.Cached {
 			task.manager.incUncachedRequests()
-			task.rateLimiter <- 1
 		}
 		task.manager.incCachedRequests()
 
@@ -89,11 +88,10 @@ func (task *MediaTask) Run() {
 		go task.worker(w)
 	}
 
-	task.rateLimiter = make(chan int, task.concurrency)
-	go task.rateLimitWorker()
+	totalRecords, err := connections.GetDBConn().Model(task.IndexModel).Count()
+	task.totalItems = int32(totalRecords)
 
-	err := connections.GetDBConn().Model(task.IndexModel).ForEach(func(item datasets.Media) error {
-		atomic.AddInt32(&task.totalItems, 1)
+	err = connections.GetDBConn().Model(task.IndexModel).ForEach(func(item datasets.Media) error {
 		task.waitGroup.Add(1)
 		task.queue <- item.ID
 		return nil
@@ -105,23 +103,4 @@ func (task *MediaTask) Run() {
 	task.waitGroup.Wait()
 	task.log(LtInfo, "Task %s finished.\n", task.Name)
 	close(task.queue)
-	close(task.rateLimiter)
-}
-
-func (manager *TaskManager) AddMediaTask(name string, indexModel interface{}, mediaMethod string, mediaCallback MediaCallback) {
-	task := &MediaTask{
-		Task: Task{
-			Name:        name,
-			mux:         sync.Mutex{},
-			concurrency: manager.Concurrency,
-			delay:       manager.Delay,
-
-			logChan:  manager.logChannel,
-			manager: manager,
-		},
-		IndexModel:    indexModel,
-		MediaMethod:   mediaMethod,
-		MediaCallback: mediaCallback,
-	}
-	manager.taskList = append(manager.taskList, task)
 }

@@ -41,18 +41,11 @@ type Task struct {
 
 	logChan *chan TaskLog
 
-	rateLimiter chan int
 	manager     *TaskManager
 }
 
 func (task *Task) GetName() string {
 	return task.Name
-}
-
-func (task *Task) rateLimitWorker() {
-	for range task.rateLimiter {
-		time.Sleep(time.Duration(task.delay) * time.Millisecond)
-	}
 }
 
 func (task *Task) log(logType LogType, message string, args ...interface{}) {
@@ -67,7 +60,8 @@ func (task *Task) log(logType LogType, message string, args ...interface{}) {
 }
 
 func (task *Task) resume() {
-	time.Sleep(15 * time.Minute) // Wait for an hour
+	task.manager.ResumeTimestamp = time.Now().Local().Add(time.Minute * 15)
+	time.Sleep(15 * time.Minute)
 	task.log(LtWarning, "RESUMING ALL WORKERS\n")
 	task.suspended = false
 	task.manager.Status = true

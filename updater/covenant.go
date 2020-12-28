@@ -26,8 +26,6 @@ func UpdateCovenant(data *blizzard_api.ApiResponse) {
 	var covenant datasets.Covenant
 	data.Parse(&covenant)
 
-	updateCovenantAbility(&covenant, covenant.SignatureAbility)
-
 	covenant.SignatureAbilityID = covenant.SignatureAbility.ID
 	insertOnceUpdate(&covenant, "name", "description", "signature_ability_id")
 
@@ -72,4 +70,23 @@ func UpdateConduit(data *blizzard_api.ApiResponse) {
 	conduit.ItemID = conduit.Item.ID
 	conduit.SocketTypeID = conduit.SocketType.ID
 	insertOnceUpdate(&conduit, "name", "item_id", "socket_type_id")
+
+	for _, rank := range conduit.Ranks {
+		if rank.SpellTooltip != nil {
+			updateSpellTooltip(rank.SpellTooltip)
+			rank.SpellTooltipID = rank.SpellTooltip.ID
+		}
+		rank.ConduitID = conduit.ID
+		insertOnceUpdate(rank, "tier", "spell_tooltip_id", "conduit_id")
+	}
+}
+
+func UpdateCovenantMedia(data *blizzard_api.ApiResponse, id int) {
+	var media datasets.CovenantMedia
+	data.Parse(&media)
+
+	for _, asset := range media.Assets {
+		asset.CovenantMediaID = id
+		insertOnceExpr(&asset, "(covenant_media_id,key) DO UPDATE", "value")
+	}
 }

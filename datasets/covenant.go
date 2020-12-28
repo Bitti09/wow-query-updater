@@ -3,7 +3,9 @@ package datasets
 type SocketType Enum
 
 type ConduitRank struct {
-	Identifiables
+	Identifiable
+	ConduitID      int
+	Conduit        *Conduit      `pg:"rel:has-one"`
 	Tier           int           `json:"tier"`
 	SpellTooltipID int           ``
 	SpellTooltip   *SpellTooltip `json:"spell_tooltip" pg:"rel:has-one"`
@@ -16,7 +18,7 @@ type Conduit struct {
 	Item         *Item          `json:"item" pg:"rel:has-one"`
 	SocketTypeID string         ``
 	SocketType   *SocketType    `json:"socket_type" pg:"rel:has-one"`
-	Ranks        []*ConduitRank `json:"ranks"`
+	Ranks        []*ConduitRank `json:"ranks" pg:"-"`
 }
 
 type Covenant struct {
@@ -39,7 +41,7 @@ type CovenantMedia struct {
 }
 
 type CovenantAssets struct {
-	CovenantMediaID int            ``
+	CovenantMediaID int            `pg:",pk"`
 	CovenantMedia   *CovenantMedia `pg:"rel:has-one"`
 	Asset
 }
@@ -66,13 +68,13 @@ type CovenantRenownReward struct {
 
 type Soulbind struct {
 	Identifiable
-	Name             LocalizedField  `json:"name"`
+	Name             LocalizedField `json:"name"`
 	CovenantID       int
-	Covenant         *Covenant       `json:"covenant" pg:"rel:has-one"`
+	Covenant         *Covenant `json:"covenant" pg:"rel:has-one"`
 	CreatureID       int
-	Creature         *Creature       `json:"creature" pg:"rel:has-one"`
+	Creature         *Creature `json:"creature" pg:"rel:has-one"`
 	FollowerID       int
-	Follower         *Follower       `json:"follower" pg:"rel:has-one"`
+	Follower         *Follower `json:"follower" pg:"rel:has-one"`
 	TechTalentTreeID int
 	TechTalentTree   *TechTalentTree `json:"talent_tree" pg:"rel:has-one"`
 }

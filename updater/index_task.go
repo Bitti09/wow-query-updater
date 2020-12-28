@@ -42,7 +42,6 @@ func (task *IndexTask) worker(workerId int) {
 		response := endpointInterface.Call(args)[0].Interface().(*blizzard_api.ApiResponse)
 		if !response.Cached {
 			task.manager.incUncachedRequests()
-			task.rateLimiter <- 1
 		}
 		task.manager.incCachedRequests()
 
@@ -106,14 +105,11 @@ func (task *IndexTask) Run() {
 		go task.worker(w)
 	}
 
-	task.rateLimiter = make(chan int, task.concurrency)
-	go task.rateLimitWorker()
-
 	var jsonData map[string]interface{}
 	response.Parse(&jsonData)
 
+	task.totalItems = int32(len(jsonData[task.IndexCollection].([]interface{})))
 	for _, item := range jsonData[task.IndexCollection].([]interface{}) {
-		atomic.AddInt32(&task.totalItems, 1)
 		task.waitGroup.Add(1)
 		task.queue <- int(item.(map[string]interface{})["id"].(float64))
 	}
@@ -121,5 +117,4 @@ func (task *IndexTask) Run() {
 	task.waitGroup.Wait()
 	task.log(LtInfo, "Task %s finished.\n", task.Name)
 	close(task.queue)
-	close(task.rateLimiter)
 }

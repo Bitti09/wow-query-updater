@@ -1,14 +1,14 @@
 package updater
 
 import (
-	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type TaskManager struct {
 	Concurrency int
-	Delay       int
+	delay       int
 	LogLevel    LogType
 	CurrentTask RunnableTask
 	Progress    int
@@ -24,12 +24,12 @@ type TaskManager struct {
 	CachedRequests   int32
 	UncachedRequests int32
 	FailedRequests   int32
+	ResumeTimestamp  time.Time
 }
 
-func NewTaskManager(concurrency int, delay int, logLevel LogType) *TaskManager {
+func NewTaskManager(concurrency int, logLevel LogType) *TaskManager {
 	return &TaskManager{
 		Concurrency:      concurrency,
-		Delay:            delay,
 		LogLevel:         logLevel,
 		Progress:         0,
 		Status:           true,
@@ -57,7 +57,7 @@ func (manager *TaskManager) AddIndexTask(name string, indexMethod string, indexC
 			Name:        name,
 			mux:         sync.Mutex{},
 			concurrency: manager.Concurrency,
-			delay:       manager.Delay,
+			delay:       manager.delay,
 
 			logChan: manager.logChannel,
 			manager: manager,
@@ -76,7 +76,7 @@ func (manager *TaskManager) AddIndexTaskLimited(name string, indexMethod string,
 			Name:        name,
 			mux:         sync.Mutex{},
 			concurrency: concurrency,
-			delay:       manager.Delay,
+			delay:       manager.delay,
 
 			logChan: manager.logChannel,
 			manager: manager,
@@ -95,7 +95,7 @@ func (manager *TaskManager) AddSearchTask(name string, indexMethod string, itemM
 			Name:        name,
 			mux:         sync.Mutex{},
 			concurrency: manager.Concurrency,
-			delay:       manager.Delay,
+			delay:       manager.delay,
 
 			logChan: manager.logChannel,
 			manager: manager,
@@ -103,6 +103,24 @@ func (manager *TaskManager) AddSearchTask(name string, indexMethod string, itemM
 		SearchMethod: indexMethod,
 		ItemMethod:   itemMethod,
 		ItemCallback: updateCallback,
+	}
+	manager.taskList = append(manager.taskList, task)
+}
+
+func (manager *TaskManager) AddMediaTask(name string, indexModel interface{}, mediaMethod string, mediaCallback MediaCallback) {
+	task := &MediaTask{
+		Task: Task{
+			Name:        name,
+			mux:         sync.Mutex{},
+			concurrency: manager.Concurrency,
+			delay:       manager.delay,
+
+			logChan: manager.logChannel,
+			manager: manager,
+		},
+		IndexModel:    indexModel,
+		MediaMethod:   mediaMethod,
+		MediaCallback: mediaCallback,
 	}
 	manager.taskList = append(manager.taskList, task)
 }
@@ -115,12 +133,26 @@ func (manager *TaskManager) AddSimpleTask(name string, method SimpleMethod) {
 	manager.taskList = append(manager.taskList, task)
 }
 
-func (manager *TaskManager) Run() {
+func (manager *TaskManager) Run(start string, only []string, doneChannel chan int) {
+	started := start == ""
 	maxProgress := len(manager.taskList)
 	for progress, task := range manager.taskList {
 		manager.Progress = progress * 100.0 / maxProgress
+
+		if task.GetName() == start {
+			started = true
+		}
+
+		if !started {
+			continue
+		}
+
+		if len(only) > 0 && !containString(task.GetName(), only) {
+			continue
+		}
+
 		manager.CurrentTask = task
 		task.Run()
 	}
-	os.Exit(0)
+	close(doneChannel)
 }

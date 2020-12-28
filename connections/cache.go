@@ -5,11 +5,22 @@ import (
 	"encoding/hex"
 	blizzard_api "github.com/francis-schiavo/blizzard-api-go"
 	"log"
+	"sync/atomic"
+	"time"
 	"wow-query-updater/datasets"
 )
 
 type PostgresCache struct {
 	Key string
+	UncachedRequests int32
+	rateLimiter *<-chan time.Time
+}
+
+func NewPostgresCache(key string, rateLimiter *<-chan time.Time) *PostgresCache {
+	return &PostgresCache{
+		Key:         key,
+		rateLimiter: rateLimiter,
+	}
 }
 
 func (cache *PostgresCache) SaveToCache(identifier string, data *blizzard_api.ApiResponse) {
@@ -35,6 +46,9 @@ func (cache *PostgresCache) LoadFromCache(identifier string) (bool, *blizzard_ap
 	cacheObj := &datasets.Cache{}
 	count, err := dbConn.Model(cacheObj).Where("key = ? AND url = ?", cache.Key, identifier).SelectAndCount()
 	if err != nil || count != 1 {
+		// Removes one slot from the rate limiter
+		<- *cache.rateLimiter
+		atomic.AddInt32(&cache.UncachedRequests, 1)
 		return false, nil
 	}
 

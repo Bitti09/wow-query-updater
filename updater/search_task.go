@@ -41,7 +41,6 @@ func (task *SearchTask) worker(workerId int) {
 		response := endpointInterface.Call(args)[0].Interface().(*blizzard_api.ApiResponse)
 		if !response.Cached {
 			task.manager.incUncachedRequests()
-			task.rateLimiter <- 1
 		}
 		task.manager.incCachedRequests()
 
@@ -79,19 +78,12 @@ func (task *SearchTask) worker(workerId int) {
 func (task *SearchTask) Run() {
 	task.log(LtInfo, "Running task: %s\n", task.GetName())
 	task.waitGroup = sync.WaitGroup{}
-	task.queue = make(chan int)
+	task.queue = make(chan int, 130000)
 	m := &sync.Mutex{}
 	task.waitCond = sync.NewCond(m)
 	task.suspended = false
 
 	endpointInterface := reflect.ValueOf(connections.WowClient).MethodByName(task.SearchMethod)
-
-	for w := 1; w <= task.concurrency-1; w++ {
-		go task.worker(w)
-	}
-
-	task.rateLimiter = make(chan int, task.concurrency-1)
-	go task.rateLimitWorker()
 
 	var jsonData datasets.SearchResult
 	lastID := 0
@@ -125,16 +117,21 @@ func (task *SearchTask) Run() {
 			break
 		}
 
+		atomic.AddInt32(&task.totalItems, int32(len(jsonData.Results)))
+
 		for _, item := range jsonData.Results {
-			atomic.AddInt32(&task.totalItems, 1)
 			task.waitGroup.Add(1)
 			lastID = item.Data.ID
 			task.queue <- lastID
 		}
 	}
 
+	// Only start processing after we have all IDs
+	for w := 1; w <= task.concurrency-1; w++ {
+		go task.worker(w)
+	}
+
 	task.waitGroup.Wait()
 	task.log(LtInfo, "Task %s finished.\n", task.Name)
 	close(task.queue)
-	close(task.rateLimiter)
 }

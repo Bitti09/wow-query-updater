@@ -57,6 +57,7 @@ type Recipe struct {
 	Name          LocalizedField   `json:"name"`
 	CraftedItemID int              ``
 	CraftedItem   *Item            `json:"crafted_item" pg:"rel:has-one"`
+	Rank          int              `json:"rank"`
 	Reagents      []RecipeReagents `json:"reagents" pg:"-"`
 	Media         *RecipeMedia     `json:"media" pg:"-"`
 }

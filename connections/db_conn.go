@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-pg/pg/v10"
-	"log"
+    log "github.com/sirupsen/logrus"
+	"io/ioutil"
+    "crypto/tls"
+    "crypto/x509"
 )
 
 var dbConn *pg.DB
@@ -23,6 +26,19 @@ func (d dbLogger) AfterQuery(c context.Context, q *pg.QueryEvent) error {
 
 // Connect is used to create the Postgres connection pool
 func Connect(username string, password string, db string, poolSize int, schema string, hostname string, port int) {
+    CAFile := "root.crt"
+    CACert, err := ioutil.ReadFile(CAFile)
+    if err != nil {
+        log.Errorf("failed to load server certificate: %v", err)
+    }
+
+    CACertPool := x509.NewCertPool()
+	CACertPool.AppendCertsFromPEM(CACert)
+	    tlsConfig := &tls.Config{
+        RootCAs:            CACertPool,
+		InsecureSkipVerify: true,
+		// ServerName:         "localhost",
+    }
 	createSchemaStatement := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS \"%s\";", schema)
 	useSchemaStatement := fmt.Sprintf("SET SEARCH_PATH = \"%s\";", schema)
 	dbConn = pg.Connect(&pg.Options{
@@ -31,6 +47,7 @@ func Connect(username string, password string, db string, poolSize int, schema s
 		Password: password,
 		Database: db,
 		PoolSize: poolSize,
+        TLSConfig: tlsConfig,
 		OnConnect: func(ctx context.Context, conn *pg.Conn) error {
 			_, err := conn.Exec(createSchemaStatement)
 			if err != nil {
@@ -53,7 +70,7 @@ func Disconnect() {
 	}
 }
 
-// GetConn is a safer way to access the connection pool
+// GetDBConn is a safer way to access the connection pool
 func GetDBConn() *pg.DB {
 	if dbConn != nil {
 		return dbConn
